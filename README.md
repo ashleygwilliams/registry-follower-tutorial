@@ -299,8 +299,8 @@ code.
 Let's walk through what this code is doing:
 
 - On line 2, we are require the `request` package
-- On line 10, we are making a request to our db using the `request` package
-- On line 11, we parse the response from our request and grab the `update_seq`
+- On line 11, we are making a request to our db using the `request` package
+- On line 12, we parse the response from our request and grab the `update_seq`
   value.
 - On line 13, on every `data` event, we check to see if the `change.seq`
   value we get is greater than or equal to `update_seq`. Why `>=` and
