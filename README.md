@@ -161,7 +161,7 @@ right now:
   changes: [ { rev: '5-1a864e76d844e90bf6c63cb94303b593' } ] }
 ```
 
-- `seq`: the packages order in the sequence of change events
+- `seq`: the package's order in the sequence of change events
 - `id`: the name of the `package` (sometimes this is something else! we'll
   get to that in a bit tho, it doesn't matter too much right now.)
 - `changes`: an array containing a single object, with a single key `rev`
