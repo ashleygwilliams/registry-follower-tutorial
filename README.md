@@ -308,7 +308,7 @@ Let's walk through what this code is doing:
   a good chance it will change while we are following it! Using `>=` means that
   we can account for the change that happens while our application is running. 
 - On line 15, we end our program. We send the value `0` to `process.exit` to
-  indicate thaat we are ending the program successfully, i.e. not with an error.
+  indicate that we are ending the program successfully, i.e. not with an error.
 
 Ok! Given this code, our application will now run for all the current changes in the
 registry and then exit. Take a moment and give it a go! Note: There are a lot of
@@ -316,7 +316,7 @@ changes, so this can take up to an hour.
 
 ## clean up
 
-So our follower is pretty much done! However, there's a few things that are quite
+So our follower is pretty much done! However, there's a few things that ain't quite
 right about our data. Let's do that now so we can finish up.
 
 Firstly, remember the `id`/`_id` key we recieve from our changes stream? We had
