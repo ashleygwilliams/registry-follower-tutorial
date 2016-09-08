@@ -64,7 +64,7 @@ Our application is going to depend on a couple super helpful npm packages:
 
 To install these packages we'll type:
 
-```
+```shell
 npm install changes-stream request --save
 ```
 ... which will add both of our dependencies to our `package.json`.
@@ -86,7 +86,7 @@ The first thing we'll do inside our `index.js` is use the `changes-stream`
 package to create a new `ChangesStream` to listen to listen to the npm
 registry. To do so we'll write:
 
-```
+```javascript
 1  const ChangeStream = require('changes-stream');
 2 
 3  const db = 'https://replicate.npmjs.com';
@@ -106,7 +106,7 @@ Let's talk about what's happening here:
 Now that we've created a changes stream, let's listen to it! To do this, we
 write:
 
-```
+```javascript
 9  changes.on('data', function(change) {
 10   console.log(change);
 11 });
@@ -114,14 +114,14 @@ write:
 
 Let's test it out: Run this application by typing:
 
-```
+```shell
 node index.js
 ```
 
 If everything is working correctly, you'll see something like this start
 **streaming** through your console:
 
-```
+```javascript
 { seq: 445,
   id: 'CompoundSignal',
   changes: [ { rev: '5-a0695c30fdaa3471246ef0cd6c8a476d' } ] }
@@ -155,7 +155,7 @@ So our follower works! But it's not that great right now because we don't
 really have all that much interesting data. Let's look at what we have
 right now:
 
-```
+```javascript
 { seq: 446,
   id: 'amphibian',
   changes: [ { rev: '5-1a864e76d844e90bf6c63cb94303b593' } ] }
@@ -179,7 +179,7 @@ object we received from the stream.
 
 The two changes we make to our code look like this:
 
-```
+```javascript
 5  var changes = new ChangesStream({
 6    db: db,
 7    include_docs: true            // <- this is the thing we're adding
@@ -217,7 +217,7 @@ different pieces of data you can get from this stream. You may notice that
 some nested structures appear like `[Object]` in your console. You can
 print those out by adding `JSON.stringify` to your log, like this:
 
-```
+```javascript
 console.log(JSON.stringify (change.doc,null,' '));
 ```
 
@@ -250,7 +250,7 @@ https:/replicate.npmjs.com
 
 ...you should see something that looks like this:
 
-```
+```json
 {
   "db_name": "registry",
   "doc_count": 345391,
@@ -282,7 +282,7 @@ db up until the time we accessed the `update_seq` value.
 That was a lot of words, let's take a look at what this would look like in
 code.
 
-```
+```javascript
 2  const Request = require('request');
 ...
 11 Request.get(db, function(err, req, body) {        // <- make a request to the db
@@ -337,12 +337,12 @@ by checking if it has a `name`. We can accomplish this by checking if
 change.doc.name` has a value before we do anything with the `change` data. In our
 code, this looks like this:
 
-```
+```javascript
 ...
 17 if (change.doc.name) {             // <-- make sure the change is a change
 18   console.log(change.doc);
 19 }
-``` 
+```
 
 Ok, so we're **almost** done. Actually, we are totally done. But there's one last
 thing we can do to make our data even better: we can normalize our data so that
@@ -354,19 +354,19 @@ To do this, we'll add *one more* dependency to our application: [`normalize-regi
 
 First things first: let's install this package and save it to our `package.json`:
 
-```
+```shell
 npm install normalize-registry-metadata --save
 ```
 
 Next, we require in our `index.js`:
 
-```
+```javascript
 3  const Normalize = require(`normalize-registry-metadata`);
 ```
 
 Lastly, let's call `Normalize()` on the `change` data before we log it to the console:
 
-```
+```javascript
 ...
 18   console.log(Normalize(change.doc));        // <-- we only have to change this line!
 ...
@@ -388,6 +388,64 @@ the last change you processed and can start back from there if at some point
 you need to restart the program.
 
 [`concurrent-couch-follower`]: https://github.com/npm/concurrent-couch-follower
+
+## a few notes on performance
+
+The vast majority of useful registry followers won't ever have
+any kind of follower-side performance problem.  In keeping with
+[long-established wisdom][wisdom], you probably shouldn't even _think_
+about this section until you hit a bottleneck in use and confirm it
+by measurement.  Logging Node.js [cpuUsage()] and [memoryUsage()],
+[heap analysis], and the built-in [profiler] are great places to start.
+
+[cpuUsage()]: https://nodejs.org/api/process.html#process_process_cpuusage_previousvalue
+
+[memoryUsage()]: https://nodejs.org/api/process.html#process_process_memoryusage
+
+[heap analysis]: https://www.npmjs.com/package/heapdump
+
+[profiler]: https://nodejs.org/en/docs/guides/simple-profiling/
+
+[wisdom]: http://c2.com/cgi/wiki?PrematureOptimization
+
+Under the hood, libraries like [`changes-stream`] `GET` the
+registry's CouchDB-style HTTPS replication endpoint, which streams
+newline-deliminted JSON objects, one per database update, over
+long-lived responses.  These are the object chunks you receive from
+the stream.
+
+Most registry update objects are manageably small, but the deviation
+is great, with a few updates weighing in close to 5 MB.  The bulk
+of this is often (highly repetitive) `README` file strings, one
+per version in `chunk.doc.versions`.  Some packages have thousands
+of versions.  And every once in a while, some fiendish jokester
+publishes a "novelty" package that "depends on" every other package
+in the registry, as if they were the first to think of it.
+
+Especially if you're using a pipeline of many object-mode streams
+to process the chunks, you may have high memory usage with Node.js'
+default maximum stream internal buffer size, `highWaterMark`, of 16.
+Multiple buffers of 16 objects each, plus lingering data not yet
+picked up by the garbage collector, can eat your RAM lunch quick.
+To reduce this number:
+
+```javascript
+new ChangesStream({
+  db: 'https://replicate.npmjs.com',
+  include_docs: true,
+  highWaterMark: 4
+})
+```
+
+Most tried-and-true stream packages, like those in the [Mississippi
+Streams Collection][mississippi], take optional options-object
+arguments that get passed along to the core [readable-stream]
+constructors.  You can set `{highWaterMark: Number}` in those
+arguments.
+
+[mississippi]: https://www.npmjs.com/package/mississippi
+
+[readable-stream]: https://www.npmjs.com/package/readable-stream
 
 ## go forth and make something awesome!
 
